@@ -18,7 +18,7 @@ return new class extends Migration
             $table->string('country');
             $table->integer('year');
             $table->string('medicine');
-            $table->float('price');            
+            $table->integer('price');            
         });
     }
 
