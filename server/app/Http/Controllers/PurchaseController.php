@@ -7,13 +7,14 @@ use App\Models\Price;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use stdClass;
 
 class PurchaseController extends Controller
 {
     public function index()
     {
         $purchases = DB::table('purchases')
-            ->leftJoin('prices', function ($join) {
+            ->join('prices', function ($join) {
                 $join->on('purchases.country', '=', 'prices.country')
                     ->on(DB::raw('YEAR(purchases.purchase_date)'), '=', 'prices.year')
                     ->on('purchases.medicine', '=', 'prices.medicine');
@@ -22,6 +23,7 @@ class PurchaseController extends Controller
             ->orderBy('id', 'DESC')
             ->get();
 
+        
         return response()->json([
             "status" => true,
             "message" => 'Fetching data successfully',
@@ -31,7 +33,7 @@ class PurchaseController extends Controller
 
     public function store(Request $request)
     {
-        
+
         // $validated = $request->validate([
         //     'country' => 'required|string',
         //     'medicine' => 'required|string',
@@ -41,15 +43,15 @@ class PurchaseController extends Controller
         //     'price' => 'required | integer'
         // ]);
 
-// ! 1 SOLUTION Duplicates objects
+        // ! 1 SOLUTION Duplicates objects
         $purchase = new Purchase;
         $purchase->country = $request->country;
         $purchase->medicine = $request->medicine;
         $purchase->quantity = $request->quantity;
         $purchase->patient_id = "no patient id";
         $purchase->purchase_date = $request->purchase_date;
-        $purchase->save();    
-       
+        $purchase->save();
+
         $year = Carbon::createFromFormat('Y-m-d', $request->purchase_date)->format('Y');
 
         $price = new Price;
@@ -63,9 +65,9 @@ class PurchaseController extends Controller
 
         $purchase->prices()->attach($price_id);
 
-        
 
-// * 2 SOLUTION  Avoiding duplicates
+
+        // * 2 SOLUTION  Avoiding duplicates
         // $purchase = Purchase::firstOrNew([
         //     'country' => $request->country,
         //     'medicine' => $request->medicine,
@@ -90,40 +92,53 @@ class PurchaseController extends Controller
         return $purchase;
     }
 
-    public function update(Request $request, Purchase $purchase)
+    public function update(Request $request, $id)
     {
-        $year = Carbon::createFromFormat('Y-m-d', $purchase->purchase_date)->format('Y');
-        $priceToUpdate = DB::table('prices')
-            ->select()
+
+        $purchase = Purchase::find($id);
+        $purchase = Purchase::where('id', $id)->first();
+        // return $purchase;
+
+        $year = (int)Carbon::createFromFormat('Y-m-d', $purchase->purchase_date)->format('Y');
+
+        $price = DB::table('prices')
             ->where('country', $purchase->country)
             ->where('year', $year)
             ->where('medicine', $purchase->medicine)
-            ->get();
+            ->pluck('id');
 
-        $priceToUpdate[0]->country = $request->country;
-        $priceToUpdate[0]->year = $request->year;
-        $priceToUpdate[0]->medicine = $request->medicine;
-        $priceToUpdate[0]->price = $request->price;
+        
+        $priceToUpdate_ID = $price[0];
+        
+        $priceToUpdate =  Price::find($priceToUpdate_ID);           
 
 
         $purchase->country = $request->country;
         $purchase->patient_id = $request->patient_id;
         $purchase->medicine = $request->medicine;
-        $purchase->quantity = $request->quantity;
+        $purchase->quantity = (int)$request->quantity;
         $purchase->purchase_date = $request->purchase_date;
-
         $purchase->update();
-        $purchase->prices()->attach($request->price);
+        
+
+        $priceToUpdate->country = $request->country;
+        $priceToUpdate->year = $year;
+        $priceToUpdate->medicine = $request->medicine;
+        $priceToUpdate->price = (int)$request->price;
+        $priceToUpdate->update();
+        
+
+        
 
         return response()->json([
             "status" => true,
             "message" => 'Updating data successfully',
             "data-purchase" => $purchase,
-            "data-price" => $priceToUpdate
+
         ], 201);
     }
 
-    public function destroy(Purchase $purchase)    
+    public function destroy(Purchase $purchase)
     {
         $year = Carbon::createFromFormat('Y-m-d', $purchase->purchase_date)->format('Y');
         $priceToDelete = DB::table('prices')
@@ -133,24 +148,16 @@ class PurchaseController extends Controller
             ->where('medicine', $purchase->medicine)
             ->get();
 
-        return $priceToDelete;
-
-        // $purchase->prices()->detach($priceToDelete[0]->id);
-        // $purchase->delete();
-        // $priceToDelete->delete();
-
-        foreach ($priceToDelete as $key => $price) {
-            $purchase->prices()->detach($priceToDelete[$key]->id);
-            $purchase->delete();
+        if (sizeof($priceToDelete) > 0) {
+            $purchase->prices()->detach($priceToDelete[0]->id);
         }
         $purchase->delete();
 
-
-        // return response()->json([
-        //     "status" => true,
-        //     "message" => 'Deleted successfully',
-        //     "data-purchase" => $purchase,
-        //     "data-price" => $priceToDelete
-        // ], 200);
+        return response()->json([
+            "status" => true,
+            "message" => 'Deleted successfully',
+            "data-purchase" => $purchase,
+            "data-price" => $priceToDelete
+        ], 200);
     }
 }
