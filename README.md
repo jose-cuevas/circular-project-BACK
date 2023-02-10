@@ -14,7 +14,7 @@ https://getcomposer.org/
 ### Executing program
 
 * Initiate apache and mysql with XAAMP and open phpMyAdmin
-* Check in .env the name of database where you are going to store the database
+* Check in .env the name of database where you are going to store the database (DB_DATABASE=circular-project)
 * Open the console and run this:
 ```
 cd server
