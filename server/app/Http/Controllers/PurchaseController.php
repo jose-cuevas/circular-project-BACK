@@ -7,7 +7,6 @@ use App\Models\Price;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
-use stdClass;
 
 class PurchaseController extends Controller
 {
@@ -19,31 +18,15 @@ class PurchaseController extends Controller
                     ->on(DB::raw('YEAR(purchases.purchase_date)'), '=', 'prices.year')
                     ->on('purchases.medicine', '=', 'prices.medicine');
             })
-            ->select('purchases.id', 'purchases.country', 'purchases.purchase_date', 'purchases.medicine', 'purchases.quantity', 'prices.price')
+            ->select('purchases.id', 'purchases.country', 'purchases.patient_id', 'purchases.purchase_date', 'purchases.medicine', 'purchases.quantity', 'prices.price')
             ->orderBy('id', 'DESC')
             ->get();
-
         
-        return response()->json([
-            "status" => true,
-            "message" => 'Fetching data successfully',
-            "data" => $purchases
-        ], 200);
+        return response()->json($purchases);        
     }
 
     public function store(Request $request)
     {
-
-        // $validated = $request->validate([
-        //     'country' => 'required|string',
-        //     'medicine' => 'required|string',
-        //     'quantity' => 'required|string',
-        //     'patient_id' => 'required|string',
-        //     'purchase_data' => 'required|string',
-        //     'price' => 'required | integer'
-        // ]);
-
-        // ! 1 SOLUTION Duplicates objects
         $purchase = new Purchase;
         $purchase->country = $request->country;
         $purchase->medicine = $request->medicine;
@@ -65,39 +48,18 @@ class PurchaseController extends Controller
 
         $purchase->prices()->attach($price_id);
 
-
-
-        // * 2 SOLUTION  Avoiding duplicates
-        // $purchase = Purchase::firstOrNew([
-        //     'country' => $request->country,
-        //     'medicine' => $request->medicine,
-        //     'quantity' => $request->quantity,
-        //     'patient_id' => $request->patient_id,
-        //     'purchase_date' => $request->purchase_date
-        // ]);
-
-        // $purchase->save();
-
         return response()->json([
             "status" => true,
             "message" => 'Posting data successfully',
             "data-purchase" => $purchase,
             "data-price" => $price
         ], 201);
-    }
-
-    public function show(Purchase $purchase)
-    {
-        // $purchase = Purchase::find(1);
-        return $purchase;
-    }
+    }    
 
     public function update(Request $request, $id)
     {
-
         $purchase = Purchase::find($id);
-        $purchase = Purchase::where('id', $id)->first();
-        // return $purchase;
+        $purchase = Purchase::where('id', $id)->first();        
 
         $year = (int)Carbon::createFromFormat('Y-m-d', $purchase->purchase_date)->format('Y');
 
@@ -105,30 +67,23 @@ class PurchaseController extends Controller
             ->where('country', $purchase->country)
             ->where('year', $year)
             ->where('medicine', $purchase->medicine)
-            ->pluck('id');
-
+            ->pluck('id');        
         
-        $priceToUpdate_ID = $price[0];
-        
-        $priceToUpdate =  Price::find($priceToUpdate_ID);           
-
+        $priceToUpdate_ID = $price[0];        
+        $priceToUpdate =  Price::find($priceToUpdate_ID);         
 
         $purchase->country = $request->country;
         $purchase->patient_id = $request->patient_id;
         $purchase->medicine = $request->medicine;
         $purchase->quantity = (int)$request->quantity;
         $purchase->purchase_date = $request->purchase_date;
-        $purchase->update();
-        
+        $purchase->update();        
 
         $priceToUpdate->country = $request->country;
         $priceToUpdate->year = $year;
         $priceToUpdate->medicine = $request->medicine;
         $priceToUpdate->price = (int)$request->price;
-        $priceToUpdate->update();
-        
-
-        
+        $priceToUpdate->update();             
 
         return response()->json([
             "status" => true,
@@ -147,11 +102,11 @@ class PurchaseController extends Controller
             ->where('year', $year)
             ->where('medicine', $purchase->medicine)
             ->get();
-
+        
         if (sizeof($priceToDelete) > 0) {
             $purchase->prices()->detach($priceToDelete[0]->id);
-        }
-        $purchase->delete();
+        }       
+        $purchase->delete();       
 
         return response()->json([
             "status" => true,

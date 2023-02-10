@@ -15,7 +15,7 @@ return new class extends Migration
     {
         Schema::create('purchases', function (Blueprint $table) {
             $table->id();
-            $table->string('patient_id')->default('no patient id');
+            $table->string('patient_id');
             $table->string('country');
             $table->string('medicine');
             $table->integer('quantity');
