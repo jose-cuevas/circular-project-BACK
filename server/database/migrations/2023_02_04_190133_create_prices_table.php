@@ -14,7 +14,7 @@ return new class extends Migration
     public function up()
     {
         Schema::create('prices', function (Blueprint $table) {
-            $table->id();
+            $table->id()->unique();
             $table->string('country');
             $table->integer('year');
             $table->string('medicine');

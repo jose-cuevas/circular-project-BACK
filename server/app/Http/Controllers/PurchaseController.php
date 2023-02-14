@@ -20,77 +20,94 @@ class PurchaseController extends Controller
             })
             ->select('purchases.id', 'purchases.country', 'purchases.patient_id', 'purchases.purchase_date', 'purchases.medicine', 'purchases.quantity', 'prices.price')
             ->orderBy('id', 'DESC')
-            ->get();
-        
-        return response()->json($purchases);        
+            ->get();        
+
+        return response()->json($purchases);
     }
 
     public function store(Request $request)
     {
-        $purchase = new Purchase;
-        $purchase->country = $request->country;
-        $purchase->medicine = $request->medicine;
-        $purchase->quantity = $request->quantity;
-        $purchase->patient_id = "no patient id";
-        $purchase->purchase_date = $request->purchase_date;
-        $purchase->save();
+        $purchase = Purchase::where('country', $request->country)
+            ->where('medicine', $request->medicine)
+            ->where('quantity', $request->quantity)
+            ->where('purchase_date', $request->purchase_date)
+            ->first();
 
-        $year = Carbon::createFromFormat('Y-m-d', $request->purchase_date)->format('Y');
+        if ($purchase == null) {
+            $purchase = new Purchase;
+            $purchase->country = $request->country;
+            $purchase->medicine = $request->medicine;
+            $purchase->quantity = $request->quantity;
+            $purchase->patient_id = "no patient id";
+            $purchase->purchase_date = $request->purchase_date;
+            $purchase->save();
 
-        $price = new Price;
-        $price->country = $request->country;
-        $price->year = $year;
-        $price->medicine = $request->medicine;
-        $price->price = $request->price;
+            $year = Carbon::createFromFormat('Y-m-d', $request->purchase_date)->format('Y');
 
-        $price->save();
-        $price_id = $price->id;
+            $price = new Price;
+            $price->country = $request->country;
+            $price->year = $year;
+            $price->medicine = $request->medicine;
+            $price->price = $request->price;
+            $price->save();
 
-        $purchase->prices()->attach($price_id);
+            $price_id = $price->id;
+            $purchase->prices()->attach($price_id);
+
+            return response()->json([
+                "status" => true,
+                "message" => 'Posting data successfully',
+                "data-purchase" => $purchase,
+                "data-price" => $price
+            ], 201);
+        }
 
         return response()->json([
-            "status" => true,
-            "message" => 'Posting data successfully',
-            "data-purchase" => $purchase,
-            "data-price" => $price
-        ], 201);
-    }    
+            "status" => false,
+            "message" => 'This puschase already exits',
+            "data-purchase" => $purchase
+        ], 404);
+    }
 
     public function update(Request $request, $id)
     {
         $purchase = Purchase::find($id);
-        $purchase = Purchase::where('id', $id)->first();        
 
-        $year = (int)Carbon::createFromFormat('Y-m-d', $purchase->purchase_date)->format('Y');
+        if ($purchase) {
+            $year = (int)Carbon::createFromFormat('Y-m-d', $purchase->purchase_date)->format('Y');
 
-        $price = DB::table('prices')
-            ->where('country', $purchase->country)
-            ->where('year', $year)
-            ->where('medicine', $purchase->medicine)
-            ->pluck('id');        
-        
-        $priceToUpdate_ID = $price[0];        
-        $priceToUpdate =  Price::find($priceToUpdate_ID);         
+            $price = Price::where('country', $purchase->country)
+                ->where('year', $year)
+                ->where('medicine', $purchase->medicine)
+                ->first();
 
-        $purchase->country = $request->country;
-        $purchase->patient_id = $request->patient_id;
-        $purchase->medicine = $request->medicine;
-        $purchase->quantity = (int)$request->quantity;
-        $purchase->purchase_date = $request->purchase_date;
-        $purchase->update();        
+            $purchase->country = $request->country;
+            $purchase->patient_id = $request->patient_id;
+            $purchase->medicine = $request->medicine;
+            $purchase->quantity = (int)$request->quantity;
+            $purchase->purchase_date = $request->purchase_date;
+            $purchase->update();
 
-        $priceToUpdate->country = $request->country;
-        $priceToUpdate->year = $year;
-        $priceToUpdate->medicine = $request->medicine;
-        $priceToUpdate->price = (int)$request->price;
-        $priceToUpdate->update();             
+            $price->country = $request->country;
+            $price->year = $year;
+            $price->medicine = $request->medicine;
+            $price->price = (int)$request->price;
+            $price->update();
+
+            return response()->json([
+                "status" => true,
+                "message" => 'Updating data successfully',
+                "data-purchase" => $purchase,
+                "data-price" => $price
+            ], 201);
+        }
 
         return response()->json([
-            "status" => true,
-            "message" => 'Updating data successfully',
+            "status" => false,
+            "message" => 'Imposible to update, purchase id no exits',
             "data-purchase" => $purchase,
 
-        ], 201);
+        ], 404);
     }
 
     public function destroy(Purchase $purchase)
@@ -102,11 +119,11 @@ class PurchaseController extends Controller
             ->where('year', $year)
             ->where('medicine', $purchase->medicine)
             ->get();
-        
+
         if (sizeof($priceToDelete) > 0) {
             $purchase->prices()->detach($priceToDelete[0]->id);
-        }       
-        $purchase->delete();       
+        }
+        $purchase->delete();
 
         return response()->json([
             "status" => true,
