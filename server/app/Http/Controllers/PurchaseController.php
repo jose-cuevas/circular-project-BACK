@@ -12,15 +12,12 @@ class PurchaseController extends Controller
 {
     public function index()
     {
-        $purchases = DB::table('purchases')
-            ->join('prices', function ($join) {
-                $join->on('purchases.country', '=', 'prices.country')
-                    ->on(DB::raw('YEAR(purchases.purchase_date)'), '=', 'prices.year')
-                    ->on('purchases.medicine', '=', 'prices.medicine');
-            })
-            ->select('purchases.id', 'purchases.country', 'purchases.patient_id', 'purchases.purchase_date', 'purchases.medicine', 'purchases.quantity', 'prices.price')
+        $purchases = DB::table('price_purchase')
+            ->join('purchases', 'purchases.id', '=', 'price_purchase.purchase_id')
+            ->join('prices', 'prices.id', '=', 'price_purchase.price_id')
+            ->select('purchases.id', 'purchases.patient_id', 'purchases.country', 'purchases.medicine', 'purchases.quantity', 'prices.price')
             ->orderBy('id', 'DESC')
-            ->get();        
+            ->get();
 
         return response()->json($purchases);
     }
@@ -106,7 +103,6 @@ class PurchaseController extends Controller
             "status" => false,
             "message" => 'Imposible to update, purchase id no exits',
             "data-purchase" => $purchase,
-
         ], 404);
     }
 
@@ -118,10 +114,10 @@ class PurchaseController extends Controller
             ->where('country', $purchase->country)
             ->where('year', $year)
             ->where('medicine', $purchase->medicine)
-            ->get();
+            ->first();
 
-        if (sizeof($priceToDelete) > 0) {
-            $purchase->prices()->detach($priceToDelete[0]->id);
+        if ($priceToDelete) {
+            $purchase->prices()->detach($priceToDelete);
         }
         $purchase->delete();
 

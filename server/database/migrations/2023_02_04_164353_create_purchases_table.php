@@ -14,8 +14,8 @@ return new class extends Migration
     public function up()
     {
         Schema::create('purchases', function (Blueprint $table) {
-            $table->id()->unique();
-            $table->string('patient_id')->unsigned()->nullable();
+            $table->id();
+            $table->string('patient_id');
             $table->string('country');
             $table->string('medicine');
             $table->integer('quantity');
