@@ -15,7 +15,7 @@ class PurchaseController extends Controller
         $purchases = DB::table('price_purchase')
             ->join('purchases', 'purchases.id', '=', 'price_purchase.purchase_id')
             ->join('prices', 'prices.id', '=', 'price_purchase.price_id')
-            ->select('purchases.id', 'purchases.patient_id', 'purchases.country', 'purchases.medicine', 'purchases.quantity', 'prices.price')
+            ->select('purchases.id', 'purchases.patient_id', 'purchases.country', 'purchases.medicine', 'purchases.quantity', 'purchases.purchase_date', 'prices.price')
             ->orderBy('id', 'DESC')
             ->get();
 
